@@ -28,8 +28,8 @@ public class RekognitionController implements ApplicationListener<ApplicationRea
     private static final Logger logger = Logger.getLogger(RekognitionController.class.getName());
 
     public RekognitionController() {
-        this.s3Client = AmazonS3ClientBuilder.standard().build();
-        this.rekognitionClient = AmazonRekognitionClientBuilder.standard().build();
+        this.s3Client = AmazonS3ClientBuilder.standard().withRegion("eu-west-1").build();
+        this.rekognitionClient = AmazonRekognitionClientBuilder.standard().withRegion("eu-west-1").build();
     }
 
     /**
