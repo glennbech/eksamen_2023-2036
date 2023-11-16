@@ -1,0 +1,16 @@
+# image 
+FROM python:3.9
+
+# working-directory
+WORKDIR /hello_world
+
+# copy current directory into the container
+COPY ./ /hello_world
+COPY ./requirements.txt /hello_world
+
+# install needed packages in requirements.txt
+RUN pip install --upgrade pip
+RUN pip3 install -r /hello_world/requirements.txt
+
+# run app.py when the container launches
+CMD ["python3", "app.py"]
