@@ -6,7 +6,7 @@ on:
 
 defaults:
   run:
-    working-directory: ./eksamen_2023-2036
+    working-directory: ./eksamen_2023-2036/kjell
 
 jobs:
   build:
