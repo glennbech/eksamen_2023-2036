@@ -13,4 +13,4 @@ RUN pip install --upgrade pip
 RUN pip3 install -r /hello_world/requirements.txt
 
 # run app.py when the container launches
-CMD ["python3", "app.py"]
+CMD ["python3", "/hello_world/app.py"]
