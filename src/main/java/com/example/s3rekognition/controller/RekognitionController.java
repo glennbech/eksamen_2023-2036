@@ -64,39 +64,76 @@ public class RekognitionController implements ApplicationListener<ApplicationRea
                                     .withName(image.getKey())))
                     .withSummarizationAttributes(new ProtectiveEquipmentSummarizationAttributes()
                             .withMinConfidence(80f)
-                            .withRequiredEquipmentTypes("FACE_COVER"));
+                            .withRequiredEquipmentTypes("FACE_COVER","HAND_COVER","HEAD_COVER"));
+            // updated the .withRequireEquipmentTypes to also include gloves and glasses
 
             DetectProtectiveEquipmentResult result = rekognitionClient.detectProtectiveEquipment(request);
 
-            // If any person on an image lacks PPE on the face, it's a violation of regulations
-            boolean violation = isViolation(result);
+            // Extract the list of persons from the result
+            List<ProtectiveEquipmentPerson> persons = result.getPersons();
 
-            logger.info("scanning " + image.getKey() + ", violation result " + violation);
+            // Determine violations for each type
+            boolean faceCoverViolation = isFaceCoverViolation(persons);
+            boolean handCoverViolation = isHandCoverViolation(persons);
+            boolean headCoverViolation = isHeadCoverViolation(persons);
+
+            // If any person on an image lacks PPE on the face, it's a violation of regulations
+            //boolean violation = isViolation(result);
+
+            logger.info("Image " + image.getKey() + " scanned. Face Cover Violation: " + faceCoverViolation
+                    + ", Hand Cover Violation: " + handCoverViolation
+                    + ", Head Cover Violation: " + headCoverViolation);
             // Categorize the current image as a violation or not.
             int personCount = result.getPersons().size();
-            PPEClassificationResponse classification = new PPEClassificationResponse(image.getKey(), personCount, violation);
+            PPEClassificationResponse classification = new PPEClassificationResponse(image.getKey(), persons.size(),faceCoverViolation,handCoverViolation,headCoverViolation);
             classificationResponses.add(classification);
         }
         PPEResponse ppeResponse = new PPEResponse(bucketName, classificationResponses);
         return ResponseEntity.ok(ppeResponse);
     }
 
-    /**
-     * Detects if the image has a protective gear violation for the FACE bodypart-
-     * It does so by iterating over all persons in a picture, and then again over
-     * each body part of the person. If the body part is a FACE and there is no
-     * protective gear on it, a violation is recorded for the picture.
-     *
-     * @param result
-     * @return
-     */
-    private static boolean isViolation(DetectProtectiveEquipmentResult result) {
-        return result.getPersons().stream()
-                .flatMap(p -> p.getBodyParts().stream())
-                .anyMatch(bodyPart -> bodyPart.getName().equals("FACE")
-                        && bodyPart.getEquipmentDetections().isEmpty());
+
+
+    private boolean isFaceCoverViolation(List<ProtectiveEquipmentPerson> persons) {
+        for (ProtectiveEquipmentPerson person : persons) {
+            for (ProtectiveEquipmentBodyPart bodyPart : person.getBodyParts()) {
+                if (bodyPart.getName().equals("FACE")) {
+                    // Check if the FACE body part has protective equipment detected
+                    if (bodyPart.getEquipmentDetections().isEmpty()) {
+                        return true; // Violation found
+                    }
+                }
+            }
+        }
+        return false; // No violation found
+    }
+    private boolean isHandCoverViolation(List<ProtectiveEquipmentPerson> persons) {
+        for (ProtectiveEquipmentPerson person : persons) {
+            for (ProtectiveEquipmentBodyPart bodyPart : person.getBodyParts()) {
+                if (bodyPart.getName().equals("HAND")) {
+                    // Check if the FACE body part has protective equipment detected
+                    if (bodyPart.getEquipmentDetections().isEmpty()) {
+                        return true; // Violation found
+                    }
+                }
+            }
+        }
+        return false; // No violation found
     }
 
+    private boolean isHeadCoverViolation(List<ProtectiveEquipmentPerson> persons) {
+        for (ProtectiveEquipmentPerson person : persons) {
+            for (ProtectiveEquipmentBodyPart bodyPart : person.getBodyParts()) {
+                if (bodyPart.getName().equals("HEAD")) {
+                    // Check if the FACE body part has protective equipment detected
+                    if (bodyPart.getEquipmentDetections().isEmpty()) {
+                        return true; // Violation found
+                    }
+                }
+            }
+        }
+        return false; // No violation found
+    }
 
     @Override
     public void onApplicationEvent(ApplicationReadyEvent applicationReadyEvent) {
