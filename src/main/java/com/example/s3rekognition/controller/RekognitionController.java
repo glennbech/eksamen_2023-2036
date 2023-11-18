@@ -7,6 +7,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.example.s3rekognition.CloudWatchMetricsSender;
 import com.example.s3rekognition.PPEClassificationResponse;
 import com.example.s3rekognition.PPEResponse;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -22,6 +23,7 @@ import java.util.logging.Logger;
 @RestController
 public class RekognitionController implements ApplicationListener<ApplicationReadyEvent> {
 
+    private final CloudWatchMetricsSender metricsSender = new CloudWatchMetricsSender();
     private final AmazonS3 s3Client;
     private final AmazonRekognition rekognitionClient;
 
@@ -69,6 +71,7 @@ public class RekognitionController implements ApplicationListener<ApplicationRea
 
             DetectProtectiveEquipmentResult result = rekognitionClient.detectProtectiveEquipment(request);
 
+
             // Extract the list of persons from the result
             List<ProtectiveEquipmentPerson> persons = result.getPersons();
 
@@ -77,18 +80,23 @@ public class RekognitionController implements ApplicationListener<ApplicationRea
             boolean handCoverViolation = isHandCoverViolation(persons);
             boolean headCoverViolation = isHeadCoverViolation(persons);
 
-            // If any person on an image lacks PPE on the face, it's a violation of regulations
-            //boolean violation = isViolation(result);
+            metricsSender.collectMetric("FaceCoverViolation", faceCoverViolation ? 1 : 0, "ImageKey", image.getKey());
+            metricsSender.collectMetric("HandCoverViolation", handCoverViolation ? 1 : 0, "ImageKey", image.getKey());
+            metricsSender.collectMetric("HeadCoverViolation", headCoverViolation ? 1 : 0, "ImageKey", image.getKey());
+
 
             logger.info("Image " + image.getKey() + " scanned. Face Cover Violation: " + faceCoverViolation
                     + ", Hand Cover Violation: " + handCoverViolation
                     + ", Head Cover Violation: " + headCoverViolation);
+
             // Categorize the current image as a violation or not.
             int personCount = result.getPersons().size();
             PPEClassificationResponse classification = new PPEClassificationResponse(image.getKey(), persons.size(),faceCoverViolation,handCoverViolation,headCoverViolation);
             classificationResponses.add(classification);
         }
         PPEResponse ppeResponse = new PPEResponse(bucketName, classificationResponses);
+        // Send all collected metrics
+        metricsSender.sendCollectedMetrics();
         return ResponseEntity.ok(ppeResponse);
     }
 

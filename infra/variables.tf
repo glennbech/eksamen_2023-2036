@@ -9,3 +9,7 @@ variable "port" {
   type = string
   default = "8080"
 }
+variable "student_name"{
+  type = string
+  default = "angr048"
+}
