@@ -1,4 +1,4 @@
-resource "aws_cloudwatch_dashboard" "main"{
+resource "aws_cloudwatch_dashboard" "dashboard"{
   dashboard_name = var.student_name
   dashboard_body = <<DASHBOARD
 {

@@ -11,5 +11,8 @@ variable "port" {
 }
 variable "student_name"{
   type = string
-  default = "angr048"
+}
+
+variable "alarm_email" {
+  type = string
 }

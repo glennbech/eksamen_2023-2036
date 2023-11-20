@@ -1,19 +1,22 @@
 package com.example.s3rekognition.controller;
 
-import com.amazonaws.services.rekognition.AmazonRekognition;
-import com.amazonaws.services.rekognition.AmazonRekognitionClientBuilder;
-import com.amazonaws.services.rekognition.model.*;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.ListObjectsV2Result;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.example.s3rekognition.CloudWatchMetricsSender;
+
 import com.example.s3rekognition.PPEClassificationResponse;
 import com.example.s3rekognition.PPEResponse;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.rekognition.RekognitionClient;
+import software.amazon.awssdk.services.rekognition.model.*;
+
+
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,91 +26,94 @@ import java.util.logging.Logger;
 @RestController
 public class RekognitionController implements ApplicationListener<ApplicationReadyEvent> {
 
-    private final CloudWatchMetricsSender metricsSender = new CloudWatchMetricsSender();
-    private final AmazonS3 s3Client;
-    private final AmazonRekognition rekognitionClient;
-
+    // Aws S3 client to interact with S3
+    private final S3Client s3Client;
+    // AWS Rekognition client to interact with Rekognition service
+    private final RekognitionClient rekognitionClient;
+    //Logger for logging information and errors
     private static final Logger logger = Logger.getLogger(RekognitionController.class.getName());
 
+    // Constructor to initialize S3 and Rekognition clients
     public RekognitionController() {
-        this.s3Client = AmazonS3ClientBuilder.standard().withRegion("eu-west-1").build();
-        this.rekognitionClient = AmazonRekognitionClientBuilder.standard().withRegion("eu-west-1").build();
+
+        this.s3Client = S3Client.builder().region(Region.EU_WEST_1).build();
+        this.rekognitionClient = RekognitionClient.builder().region(Region.EU_WEST_1).build();
     }
 
-    /**
-     * This endpoint takes an S3 bucket name in as an argument, scans all the
-     * Files in the bucket for Protective Gear Violations.
-     * <p>
-     *
-     * @param bucketName
-     * @return
-     */
+    // Endpoint to scan personal protective equipment (PPE) in images stored in the S# bucket
     @GetMapping(value = "/scan-ppe", consumes = "*/*", produces = "application/json")
     @ResponseBody
-    public ResponseEntity<PPEResponse> scanForPPE(@RequestParam String bucketName) {
-        // List all objects in the S3 bucket
-        ListObjectsV2Result imageList = s3Client.listObjectsV2(bucketName);
+    public ResponseEntity<PPEResponse> scanPPE(@RequestParam String bucketName, @RequestParam List<String> requiredEquipmentTypes) {
 
-        // This will hold all of our classifications
+        // Retrieve all objects from the specified S3 bucket
+        ListObjectsV2Response imageList = s3Client.listObjectsV2(ListObjectsV2Request.builder().bucket(bucketName).build());
+
+        // Store classifications for each image
         List<PPEClassificationResponse> classificationResponses = new ArrayList<>();
 
-        // This is all the images in the bucket
-        List<S3ObjectSummary> images = imageList.getObjectSummaries();
+        // Get a list of images from the bucket
+        List<software.amazon.awssdk.services.s3.model.S3Object> images = imageList.contents();
 
-        // Iterate over each object and scan for PPE
-        for (S3ObjectSummary image : images) {
-            logger.info("scanning " + image.getKey());
+        // Iterate over each image and analyze for PPE
+        for (software.amazon.awssdk.services.s3.model.S3Object image : images) {
+            String imageKey = image.key();
+            logger.info("scanning " + image.key());
+            DetectProtectiveEquipmentRequest request = buildPpeRequest(bucketName, imageKey, requiredEquipmentTypes);
+            DetectProtectiveEquipmentResponse response = rekognitionClient.detectProtectiveEquipment(request);
 
-            // This is where the magic happens, use AWS rekognition to detect PPE
-            DetectProtectiveEquipmentRequest request = new DetectProtectiveEquipmentRequest()
-                    .withImage(new Image()
-                            .withS3Object(new S3Object()
-                                    .withBucket(bucketName)
-                                    .withName(image.getKey())))
-                    .withSummarizationAttributes(new ProtectiveEquipmentSummarizationAttributes()
-                            .withMinConfidence(80f)
-                            .withRequiredEquipmentTypes("FACE_COVER","HAND_COVER","HEAD_COVER"));
-            // updated the .withRequireEquipmentTypes to also include gloves and glasses
+            // Extract information about persons detected in the image
+            List<ProtectiveEquipmentPerson> persons = response.persons();
+            // Check for violations for each type of PPE
+            boolean faceCoverViolation = isViolation(persons, "FACE");
+            boolean handCoverViolation = isViolation(persons, "HAND");
+            boolean headCoverViolation = isViolation(persons, "HEAD");
 
-            DetectProtectiveEquipmentResult result = rekognitionClient.detectProtectiveEquipment(request);
+            // Log and create response as per the specific requirements
+            logger.info("Image " + imageKey + " scanned. Violations - Face: " + faceCoverViolation + ", Hand: " + handCoverViolation + ", Head: " + headCoverViolation);
 
-
-            // Extract the list of persons from the result
-            List<ProtectiveEquipmentPerson> persons = result.getPersons();
-
-            // Determine violations for each type
-            boolean faceCoverViolation = isFaceCoverViolation(persons);
-            boolean handCoverViolation = isHandCoverViolation(persons);
-            boolean headCoverViolation = isHeadCoverViolation(persons);
-
-            metricsSender.collectMetric("FaceCoverViolation", faceCoverViolation ? 1 : 0, "ImageKey", image.getKey());
-            metricsSender.collectMetric("HandCoverViolation", handCoverViolation ? 1 : 0, "ImageKey", image.getKey());
-            metricsSender.collectMetric("HeadCoverViolation", headCoverViolation ? 1 : 0, "ImageKey", image.getKey());
-
-
-            logger.info("Image " + image.getKey() + " scanned. Face Cover Violation: " + faceCoverViolation
-                    + ", Hand Cover Violation: " + handCoverViolation
-                    + ", Head Cover Violation: " + headCoverViolation);
-
-            // Categorize the current image as a violation or not.
-            int personCount = result.getPersons().size();
-            PPEClassificationResponse classification = new PPEClassificationResponse(image.getKey(), persons.size(),faceCoverViolation,handCoverViolation,headCoverViolation);
+            // Store the classification results for each image
+            PPEClassificationResponse classification = new PPEClassificationResponse(imageKey, persons.size(), faceCoverViolation, handCoverViolation, headCoverViolation);
             classificationResponses.add(classification);
+
         }
-        PPEResponse ppeResponse = new PPEResponse(bucketName, classificationResponses);
-        // Send all collected metrics
-        metricsSender.sendCollectedMetrics();
-        return ResponseEntity.ok(ppeResponse);
+        // Return the result as an HTTP response
+        return ResponseEntity.ok(new PPEResponse(bucketName, classificationResponses));
     }
 
+    //Helper method to build a request for detecting PPE in an image
+    private DetectProtectiveEquipmentRequest buildPpeRequest(String bucketName, String imageKey, List<String> requiredEquipmentTypes) {
+        return DetectProtectiveEquipmentRequest.builder()
+                .image(Image.builder()
+                        .s3Object(software.amazon.awssdk.services.rekognition.model.S3Object.builder()
+                                .bucket(bucketName)
+                                .name(imageKey)
+                                .build())
+                        .build())
+                .summarizationAttributes(ProtectiveEquipmentSummarizationAttributes.builder()
+                        .minConfidence(80f)
+                        .requiredEquipmentTypesWithStrings(requiredEquipmentTypes)
+                        .build())
+                .build();
+    }
+    // New endpoint for scanning for face and hand covers in fluid contagion scenarios
+    @GetMapping(value = "/scan-ppe/fluid-contagion", consumes = "*/*", produces = "application/json")
+    public ResponseEntity<PPEResponse> scanForFluidContagionPPE(@RequestParam String bucketName) {
+        return scanPPE(bucketName, List.of("FACE_COVER", "HAND_COVER"));
+    }
 
+    // New endpoint for checking hand cover only
+    @GetMapping(value = "/scan-ppe/hand-only", consumes = "*/*", produces = "application/json")
+    public ResponseEntity<PPEResponse> scanForHandOnlyPPE(@RequestParam String bucketName) {
+        return scanPPE(bucketName, List.of("HAND_COVER"));
+    }
 
-    private boolean isFaceCoverViolation(List<ProtectiveEquipmentPerson> persons) {
+    // Helper method to determine if there is a PPE violation for a given body part
+    private boolean isViolation(List<ProtectiveEquipmentPerson> persons, String ppeType) {
         for (ProtectiveEquipmentPerson person : persons) {
-            for (ProtectiveEquipmentBodyPart bodyPart : person.getBodyParts()) {
-                if (bodyPart.getName().equals("FACE")) {
-                    // Check if the FACE body part has protective equipment detected
-                    if (bodyPart.getEquipmentDetections().isEmpty()) {
+            for (ProtectiveEquipmentBodyPart bodyPart : person.bodyParts()) {
+                if (bodyPart.nameAsString().equals(ppeType)) {
+                    // Check if the specified body part has protective equipment detected
+                    if (bodyPart.equipmentDetections().isEmpty()) {
                         return true; // Violation found
                     }
                 }
@@ -115,34 +121,6 @@ public class RekognitionController implements ApplicationListener<ApplicationRea
         }
         return false; // No violation found
     }
-    private boolean isHandCoverViolation(List<ProtectiveEquipmentPerson> persons) {
-        for (ProtectiveEquipmentPerson person : persons) {
-            for (ProtectiveEquipmentBodyPart bodyPart : person.getBodyParts()) {
-                if (bodyPart.getName().equals("HAND")) {
-                    // Check if the FACE body part has protective equipment detected
-                    if (bodyPart.getEquipmentDetections().isEmpty()) {
-                        return true; // Violation found
-                    }
-                }
-            }
-        }
-        return false; // No violation found
-    }
-
-    private boolean isHeadCoverViolation(List<ProtectiveEquipmentPerson> persons) {
-        for (ProtectiveEquipmentPerson person : persons) {
-            for (ProtectiveEquipmentBodyPart bodyPart : person.getBodyParts()) {
-                if (bodyPart.getName().equals("HEAD")) {
-                    // Check if the FACE body part has protective equipment detected
-                    if (bodyPart.getEquipmentDetections().isEmpty()) {
-                        return true; // Violation found
-                    }
-                }
-            }
-        }
-        return false; // No violation found
-    }
-
     @Override
     public void onApplicationEvent(ApplicationReadyEvent applicationReadyEvent) {
 
