@@ -50,6 +50,7 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_REGION }}
       IMAGE: ${{ secrets.ECR_REPOSITORY }}:latest
       PREFIX: kandidatnr-2036
+      EMAIL: ${{ secrets.EMAIL_NAME }}
 
     steps:
       - uses: actions/checkout@v3
@@ -75,4 +76,4 @@ jobs:
       - name: Terraform Apply
         working-directory: ./infra
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-        run: terraform apply -var="prefix=$PREFIX" -var="image_identifier=$IMAGE"  -auto-approve
+        run: terraform apply -var="prefix=$PREFIX" -var="image_identifier=$IMAGE" -var="alarm_email=$EMAIL" -auto-approve
