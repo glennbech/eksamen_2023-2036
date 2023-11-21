@@ -22,7 +22,7 @@ public class MetricsConfig {
                 .region(Region.EU_WEST_1)
                 .build();
     }
-
+/*
     @Bean
     public MeterRegistry getMeterRegistry() {
         CloudWatchConfig cloudWatchConfig = setUpCloudWatchConfig();
@@ -31,12 +31,18 @@ public class MetricsConfig {
                 Clock.SYSTEM,
                 cloudWatchAsyncClient());
 
+    }*/
+    @Bean
+    public MeterRegistry meterRegistry(CloudWatchAsyncClient cloudWatchAsyncClient) {
+        return new CloudWatchMeterRegistry(cloudWatchConfig(), Clock.SYSTEM, cloudWatchAsyncClient);
     }
-    private CloudWatchConfig setUpCloudWatchConfig() {
+
+
+    private CloudWatchConfig cloudWatchConfig() {
         return new CloudWatchConfig() {
             private final Map<String,String> configuration = Map.of(
-                    "cloudwatch.namespace","",
-                    "cloudwatch.step", Duration.ofSeconds(5).toString());
+                    "cloudwatch.namespace","ScanTime-2036",
+                    "cloudwatch.step", Duration.ofSeconds(20).toString());
 
             @Override
             public String get(String key) {
@@ -45,3 +51,4 @@ public class MetricsConfig {
         };
     }
 }
+

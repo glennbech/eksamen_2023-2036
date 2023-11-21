@@ -3,6 +3,8 @@ package com.example.s3rekognition.controller;
 
 import com.example.s3rekognition.PPEClassificationResponse;
 import com.example.s3rekognition.PPEResponse;
+import com.example.s3rekognition.ViolationTracker;
+import io.micrometer.core.instrument.*;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.http.ResponseEntity;
@@ -30,28 +32,36 @@ public class RekognitionController implements ApplicationListener<ApplicationRea
     private final S3Client s3Client;
     // AWS Rekognition client to interact with Rekognition service
     private final RekognitionClient rekognitionClient;
+
+    private final Counter totalViolationsCounter;
+    private final ViolationTracker violationTracker;
+    private final MeterRegistry meterRegistry;
     //Logger for logging information and errors
     private static final Logger logger = Logger.getLogger(RekognitionController.class.getName());
 
     // Constructor to initialize S3 and Rekognition clients
-    public RekognitionController() {
-
+    public RekognitionController(ViolationTracker violationTracker, MeterRegistry meterRegistry) {
+        this.violationTracker =violationTracker;
+        this.meterRegistry = meterRegistry;
         this.s3Client = S3Client.builder().region(Region.EU_WEST_1).build();
         this.rekognitionClient = RekognitionClient.builder().region(Region.EU_WEST_1).build();
+
+        this.totalViolationsCounter = meterRegistry.counter("ppe.violations.total");
+        registerMetrics();
     }
 
     // Endpoint to scan personal protective equipment (PPE) in images stored in the S# bucket
     @GetMapping(value = "/scan-ppe", consumes = "*/*", produces = "application/json")
     @ResponseBody
     public ResponseEntity<PPEResponse> scanPPE(@RequestParam String bucketName, @RequestParam List<String> requiredEquipmentTypes) {
-
+        Timer.Sample sample = Timer.start(meterRegistry);
         // Retrieve all objects from the specified S3 bucket
         ListObjectsV2Response imageList = s3Client.listObjectsV2(ListObjectsV2Request.builder().bucket(bucketName).build());
 
         // Store classifications for each image
         List<PPEClassificationResponse> classificationResponses = new ArrayList<>();
 
-        // Get a list of images from the bucket
+        // Get a list of images from the bucket(needed to put the whole path inside because the imports would not work, unsure why)
         List<software.amazon.awssdk.services.s3.model.S3Object> images = imageList.contents();
 
         // Iterate over each image and analyze for PPE
@@ -76,6 +86,7 @@ public class RekognitionController implements ApplicationListener<ApplicationRea
             classificationResponses.add(classification);
 
         }
+        sample.stop(meterRegistry.timer("rekognition.image.analysis.time", "bucket",bucketName));
         // Return the result as an HTTP response
         return ResponseEntity.ok(new PPEResponse(bucketName, classificationResponses));
     }
@@ -106,7 +117,17 @@ public class RekognitionController implements ApplicationListener<ApplicationRea
     public ResponseEntity<PPEResponse> scanForHandOnlyPPE(@RequestParam String bucketName) {
         return scanPPE(bucketName, List.of("HAND_COVER"));
     }
-
+    @GetMapping(value = "/current-violations", produces = "application/json")
+    public ResponseEntity<Integer> getCurrentViolations() {
+        int currentViolations = violationTracker.getCurrentViolationCount();
+        Gauge.builder("ppe.violations.current", currentViolations, Number::doubleValue)
+                .register(meterRegistry);
+        return ResponseEntity.ok(currentViolations);
+    }
+    private void registerMetrics() {
+        Gauge.builder("ppe.violations.current", violationTracker, ViolationTracker::getCurrentViolationCount)
+                .register(meterRegistry);
+    }
     // Helper method to determine if there is a PPE violation for a given body part
     private boolean isViolation(List<ProtectiveEquipmentPerson> persons, String ppeType) {
         for (ProtectiveEquipmentPerson person : persons) {
@@ -114,6 +135,8 @@ public class RekognitionController implements ApplicationListener<ApplicationRea
                 if (bodyPart.nameAsString().equals(ppeType)) {
                     // Check if the specified body part has protective equipment detected
                     if (bodyPart.equipmentDetections().isEmpty()) {
+                        violationTracker.incrementViolationCount();
+                        totalViolationsCounter.increment();
                         return true; // Violation found
                     }
                 }

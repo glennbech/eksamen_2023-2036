@@ -73,14 +73,19 @@ resource "aws_iam_role_policy_attachment" "attachment" {
   policy_arn = aws_iam_policy.policy.arn
 }
 
-module "alarm" {
-  source = "./alarm_module"
-  alarm_email = var.alarm_email
-  prefix = var.student_name
+module "cloudwatch_alarm" {
+  source = "./cloudwatch_alarm"
+
+  alarm_name        = "ppe.violations.total"
+  namespace         = "scanTime-2036"
+  metric_name       = "ppe.violations.total"
+  comparison_operator = "GreaterThanThreshold"
+  threshold         = 5
+  evaluation_periods = 2
+  period            = 300
+  statistic         = "Sum"
+  alarm_description = "Alarm when the total number of PPE violations exceeds the threshold"
+  topic_name        = "AlarmTopic"
+  alarm_email       = var.alarm_email
 }
 
-module "dashboard" {
-  source = "./dashboard_module"
-  student_name = var.student_name
-
-}
