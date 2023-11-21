@@ -85,7 +85,36 @@ module "cloudwatch_alarm" {
   period            = 300
   statistic         = "Sum"
   alarm_description = "Alarm when the total number of PPE violations exceeds the threshold"
-  topic_name        = "AlarmTopic"
+  topic_name        = "alarm-topic-2036"
   alarm_email       = var.alarm_email
+}
+
+resource "aws_cloudwatch_dashboard" "main" {
+  dashboard_name = var.student_name
+  dashboard_body = <<DASHBOARD
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [
+            "${var.student_name}",
+            "ppe.violations.total.value"
+          ]
+        ],
+        "period": 300,
+        "stat": "Sum",
+        "region": "eu-west-1",
+        "title": "Total number of violations"
+      }
+    }
+  ]
+}
+DASHBOARD
 }
 

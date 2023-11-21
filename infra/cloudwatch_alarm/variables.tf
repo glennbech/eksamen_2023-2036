@@ -54,7 +54,7 @@ variable "alarm_description" {
 variable "topic_name" {
   type = string
   description = "The name of the SNS topic for the alarm"
-  default = "AlarmTopic-2036"
+  default = "alarm-topic-2036"
 }
 
 variable "alarm_email" {
