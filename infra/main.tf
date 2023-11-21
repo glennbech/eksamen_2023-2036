@@ -87,6 +87,7 @@ module "cloudwatch_alarm" {
   alarm_description = "Alarm when the total number of PPE violations exceeds the threshold"
   topic_name        = "alarm-topic-2036"
   alarm_email       = var.alarm_email
+  region            = "eu-west-1"
 }
 
 resource "aws_cloudwatch_dashboard" "main" {
