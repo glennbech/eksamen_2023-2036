@@ -12,7 +12,7 @@ variable "namespace" {
 variable "metric_name" {
   type = string
   description = "The name of the CloudWatch metric"
-  default = "ppe.violations.total"
+  default = "ppe.violations.total.value"
 }
 
 variable "comparison_operator" {

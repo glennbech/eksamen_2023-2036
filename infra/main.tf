@@ -78,7 +78,7 @@ module "cloudwatch_alarm" {
 
   alarm_name        = "ppe.violations.total"
   namespace         = "scanTime-2036"
-  metric_name       = "ppe.violations.total"
+  metric_name       = "ppe.violations.total.value"
   comparison_operator = "GreaterThanThreshold"
   threshold         = 5
   evaluation_periods = 2
