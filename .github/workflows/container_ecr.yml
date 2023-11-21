@@ -49,7 +49,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       IMAGE: ${{ secrets.ECR_REPOSITORY }}:latest
-      PREFIX: kandidatnr-2036
+      PREFIX: "kandidatnr-2036"
       EMAIL: ${{ secrets.EMAIL_NAME }}
 
     steps:
