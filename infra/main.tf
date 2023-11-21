@@ -90,7 +90,7 @@ module "cloudwatch_alarm" {
 }
 
 resource "aws_cloudwatch_dashboard" "main" {
-  dashboard_name = var.student_name
+  dashboard_name = var.prefix
   dashboard_body = <<DASHBOARD
 {
   "widgets": [
@@ -103,7 +103,7 @@ resource "aws_cloudwatch_dashboard" "main" {
       "properties": {
         "metrics": [
           [
-            "${var.student_name}",
+            "${var.prefix}",
             "ppe.violations.total.value"
           ]
         ],
