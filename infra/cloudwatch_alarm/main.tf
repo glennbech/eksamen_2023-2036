@@ -9,7 +9,7 @@ resource "aws_cloudwatch_metric_alarm" "alarm" {
   statistic           = var.statistic
   alarm_description   = var.alarm_description
   alarm_actions       = [aws_sns_topic.topic.arn]
-  region              = var.region
+
 }
 
 resource "aws_sns_topic" "topic" {

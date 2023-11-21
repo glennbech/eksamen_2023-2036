@@ -14,11 +14,7 @@ variable "metric_name" {
   description = "The name of the CloudWatch metric"
   default = "ppe.violations.total.value"
 }
-variable "region" {
-  type = string
-  description = "Specify the region"
-  default = "eu-west-1"
-}
+
 variable "comparison_operator" {
   type = string
   description = "The comparison operator for the alarm"
