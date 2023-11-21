@@ -5,7 +5,25 @@
 ### For sensor : 
 
 Etter å ha opprettet en fork av dette prosjektet, gå til repository instillinger og finn "secrets"
-legg til AWS_ACCESS_KEY_ID og AWS_SECRET_ACCESS_KEY sammen med sensors egne AWS nøkler.
+
+Legg til: 
+* AWS_ACCESS_KEY_ID  
+* AWS_SECRET_ACCESS_KEY 
+* EMAIL_NAME(som det skal sendes alarm til. ref. oppgave 3B)
+* AWS_REGION -> eu-west-1
+
+**Kort begrunnelse for måleinstrumenter brukt:(oppgave 4A)**
+1. Timer på hvor lang tid applikasjonen bruker på å kjøre en analyse. Tenker dette er verdiful informasjon
+da man kan etterhvert som applikasjonen vokser så får man sett hva som tar lengst tid og om man eventuelt må gjøre noen endringer
+i koden for å forbedre hastighet(f.eks - gruppere bilder og kjøre flere analyser på en gang en å kjøre en og en)
+2. En Gauge - hvor man kan sjekke hvor mange "violations" det er registrert akkurat nå - ett slags snapshot av applikasjone
+3. En counter på hvor mange "violations" som har skjedd siden applikasjonen startet - bra for å følge med på trender, når det skjer mest brudd og 
+effektiviteten av eventuelle sikkerhetstiltak man vil gjøre for å forbedre antall "violations".
+
+**Redgjørelse for valg av kriterier av CloudWatch alarm(oppgave 4B)**
+
+Valgte å basere alarmen på hvis det totale nummeret av "violations" overstiger 5 så vill man få en e-post sendt.
+Det er en god grunn til å bruke dette fordi om man opplever en unormal økning av sikkerhetsbrudd så vil man bli varslet.
 
 # **Oppgave 4 - Drøfteoppgaver**
 ###  *A. Kontinuerlig integrering*
@@ -14,11 +32,10 @@ Kontinuelrlig integrasjon er en tilnærming innen programvareutvikling der utvik
 koden de har skrevet gjennom hele utviklingsprosessen , og legger den til i kodebasen minst en gang om dagen.
 Automatiserte tester kjøres for hver versjon av programvaren for å oppdage
 eventuelle problemer med integrering tidlig i prosessen, når det er enklere å rette dem.
-Dette bidrar også til å unngå problemer når man til slutt skal sammenføye koden for utgivelsen.
 Samlet sett hjelper kontinuerlig integrasjon med å effektivisere byggeprosessen, noe
 som resulterer i programvare av høyere kvalitet og mer forutsigbare leveringsplaner.
 
- **Hvordan jobber vi med VI i Github rent praktisk?** 
+ **Hvordan jobber vi med CI i GitHub rent praktisk?**
  
 1. Starte med å opprette en felles Github-repository
 2. Lag CI-workflows: Definere CI-workflows ved hjelp av GitHub Actions. bygging av koden, automatiserte tester, distribusjon
@@ -31,7 +48,7 @@ som resulterer i programvare av høyere kvalitet og mer forutsigbare leveringspl
 
 **1 .Scrum/Smidig Metodikk**
 
-Smidig metorikk er en prosjektledelsesramme som deler prosjekter opp i flere dynamiske faser, som ofte kalles sprinter.
+Smidig metodikk er en prosjektledelsesramme som deler prosjekter opp i flere dynamiske faser, som ofte kalles sprinter.
 1. Plan
 2. Design
 3. Develop
@@ -78,7 +95,7 @@ Grunnleggende prinsipper og prksiser:
 - Handler om å integrere kodeendringer regelmessig, ofte flere ganger om dagen, dette pga at feil skap oppdages tidlig og kan bli løst raskt
 
 **4. Kontinuerlig levering:**
-- Automatisere leveransen kodeendringer til produsjonsmiljøet når de er klar, etter vellykket testing
+- Automatisere leveransen av kodeendringer til produsjonsmiljøet når de er klar, etter vellykket testing
 
 **5. Overvåking og tilbakemelding:**
 - Aktiv overvåking av programvaren i produksjon, sånn at eventuelle problemer kan oppdages og løses forløpende
