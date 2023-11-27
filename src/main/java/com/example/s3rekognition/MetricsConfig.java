@@ -22,16 +22,7 @@ public class MetricsConfig {
                 .region(Region.EU_WEST_1)
                 .build();
     }
-/*
-    @Bean
-    public MeterRegistry getMeterRegistry() {
-        CloudWatchConfig cloudWatchConfig = setUpCloudWatchConfig();
-        return new CloudWatchMeterRegistry(
-                cloudWatchConfig,
-                Clock.SYSTEM,
-                cloudWatchAsyncClient());
 
-    }*/
     @Bean
     public MeterRegistry meterRegistry(CloudWatchAsyncClient cloudWatchAsyncClient) {
         return new CloudWatchMeterRegistry(cloudWatchConfig(), Clock.SYSTEM, cloudWatchAsyncClient);
