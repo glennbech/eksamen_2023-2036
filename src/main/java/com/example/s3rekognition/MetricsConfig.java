@@ -32,7 +32,7 @@ public class MetricsConfig {
     private CloudWatchConfig cloudWatchConfig() {
         return new CloudWatchConfig() {
             private final Map<String,String> configuration = Map.of(
-                    "cloudwatch.namespace","ScanTime-2036",
+                    "cloudwatch.namespace","ScanTime-2036s",
                     "cloudwatch.step", Duration.ofSeconds(20).toString());
 
             @Override

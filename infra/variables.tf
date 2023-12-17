@@ -1,6 +1,6 @@
 variable "prefix" {
   type = string
-  default = "kandidatnr-2036"
+  default = "kandidatnr-2036s"
 }
 variable "image_identifier" {
   type = string

@@ -6,7 +6,7 @@ variable "alarm_name" {
 variable "namespace" {
   type = string
   description = "namespace for the CloudWatch metric"
-  default = "scanTime-2036"
+  default = "scanTime-2036s"
 }
 
 variable "metric_name" {
